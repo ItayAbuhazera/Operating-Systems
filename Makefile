@@ -111,6 +111,11 @@ $U/_helloworld: $U/helloworld.o $(ULIB)
 	$(OBJDUMP) -S $U/_helloworld > $U/helloworld.asm
 	$(OBJDUMP) -t $U/_helloworld | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/helloworld.sym
 
+$U/_memsize_test: $U/memsize_test.o $(ULIB)
+	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_memsize_test $U/memsize_test.o $(ULIB)
+	$(OBJDUMP) -S $U/_memsize_test > $U/memsize_test.asm
+	$(OBJDUMP) -t $U/_memsize_test | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/memsize_test.sym
+
 mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 	gcc -Werror -Wall -I. -o mkfs/mkfs mkfs/mkfs.c
 
@@ -137,7 +142,8 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
-	$U/_helloworld
+	$U/_helloworld\
+	$U/_memsize_test
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
