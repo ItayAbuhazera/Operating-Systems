@@ -80,6 +80,9 @@ struct trapframe {
 };
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+// void exit(int status, char *msg);
+// int wait(uint64 addr, uint64 msg_addr);
+
 
 // Per-process state
 struct proc {
@@ -91,6 +94,7 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
+  char exit_msg[32];           // Exit message
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process

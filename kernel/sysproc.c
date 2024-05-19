@@ -7,13 +7,17 @@
 #include "proc.h"
 
 uint64
-sys_exit(void)
-{
-  int n;
-  argint(0, &n);
-  exit(n);
+sys_exit(void) {
+  int status;
+  char msg[32];  // Buffer to store the exit message
+
+  argint(0, &status);  // Fetch the status argument
+  argstr(1, msg, sizeof(msg));  // Fetch the exit message
+
+  exit(status, msg);
   return 0;  // not reached
 }
+
 
 uint64
 sys_getpid(void)
@@ -30,10 +34,15 @@ sys_fork(void)
 uint64
 sys_wait(void)
 {
-  uint64 p;
-  argaddr(0, &p);
-  return wait(p);
+  uint64 addr;
+  uint64 msg_addr;
+  
+  argaddr(0, &addr);    // Fetch the address argument
+  argaddr(1, &msg_addr); // Fetch the message address argument
+  
+  return wait(addr, msg_addr);
 }
+
 
 uint64
 sys_sbrk(void)
@@ -94,3 +103,4 @@ sys_memsize(void)
 {
   return myproc()->sz;
 }
+

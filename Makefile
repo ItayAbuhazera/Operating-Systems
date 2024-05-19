@@ -116,6 +116,17 @@ $U/_memsize_test: $U/memsize_test.o $(ULIB)
 	$(OBJDUMP) -S $U/_memsize_test > $U/memsize_test.asm
 	$(OBJDUMP) -t $U/_memsize_test | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/memsize_test.sym
 
+$U/_goodbye: $U/goodbye.o $(ULIB)
+	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_goodbye $U/goodbye.o $(ULIB)
+	$(OBJDUMP) -S $U/_goodbye > $U/goodbye.asm
+	$(OBJDUMP) -t $U/_goodbye | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/goodbye.sym
+
+$U/goodbye.o: $U/goodbye.c
+	$(CC) $(CFLAGS) -c -o $U/goodbye.o $U/goodbye.c
+
+
+
+
 mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 	gcc -Werror -Wall -I. -o mkfs/mkfs mkfs/mkfs.c
 
@@ -143,6 +154,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_helloworld\
+	$U/_goodbye\
 	$U/_memsize_test
 
 fs.img: mkfs/mkfs README $(UPROGS)
