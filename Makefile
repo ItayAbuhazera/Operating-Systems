@@ -106,25 +106,31 @@ $U/_forktest: $U/forktest.o $(ULIB)
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o
 	$(OBJDUMP) -S $U/_forktest > $U/forktest.asm
 
-$U/_helloworld: $U/helloworld.o $(ULIB)
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_helloworld $U/helloworld.o $U/ulib.o $U/usys.o
-	$(OBJDUMP) -S $U/_helloworld > $U/helloworld.asm
-	$(OBJDUMP) -t $U/_helloworld | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/helloworld.sym
+# $U/_helloworld: $U/helloworld.o $(ULIB)
+# 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_helloworld $U/helloworld.o $U/ulib.o $U/usys.o
+# 	$(OBJDUMP) -S $U/_helloworld > $U/helloworld.asm
+# 	$(OBJDUMP) -t $U/_helloworld | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/helloworld.sym
 
-$U/_memsize_test: $U/memsize_test.o $(ULIB)
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_memsize_test $U/memsize_test.o $(ULIB)
-	$(OBJDUMP) -S $U/_memsize_test > $U/memsize_test.asm
-	$(OBJDUMP) -t $U/_memsize_test | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/memsize_test.sym
+# $U/_memsize_test: $U/memsize_test.o $(ULIB)
+# 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_memsize_test $U/memsize_test.o $(ULIB)
+# 	$(OBJDUMP) -S $U/_memsize_test > $U/memsize_test.asm
+# 	$(OBJDUMP) -t $U/_memsize_test | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/memsize_test.sym
 
-$U/_goodbye: $U/goodbye.o $(ULIB)
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_goodbye $U/goodbye.o $(ULIB)
-	$(OBJDUMP) -S $U/_goodbye > $U/goodbye.asm
-	$(OBJDUMP) -t $U/_goodbye | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/goodbye.sym
+# $U/_goodbye: $U/goodbye.o $(ULIB)
+# 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_goodbye $U/goodbye.o $(ULIB)
+# 	$(OBJDUMP) -S $U/_goodbye > $U/goodbye.asm
+# 	$(OBJDUMP) -t $U/_goodbye | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/goodbye.sym
 
-$U/goodbye.o: $U/goodbye.c
-	$(CC) $(CFLAGS) -c -o $U/goodbye.o $U/goodbye.c
+# $U/goodbye.o: $U/goodbye.c
+# 	$(CC) $(CFLAGS) -c -o $U/goodbye.o $U/goodbye.c
 
+# $U/_affinity_test: $U/affinity_test.o $(ULIB)
+# 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_affinity_test $U/affinity_test.o $U/ulib.o $U/usys.o
+# 	$(OBJDUMP) -S $U/_affinity_test > $U/affinity_test.asm
+# 	$(OBJDUMP) -t $U/_affinity_test | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/affinity_test.sym
 
+# %U/affinity_test.o: $U/affinity_test.c
+# 	$(CC) $(CFLAGS) -c -o $U/affinity_test.o $U/affinity_test.c
 
 
 mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
@@ -155,7 +161,9 @@ UPROGS=\
 	$U/_zombie\
 	$U/_helloworld\
 	$U/_goodbye\
-	$U/_memsize_test
+	$U/_memsize_test \
+	$U/_affinity_test \
+
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

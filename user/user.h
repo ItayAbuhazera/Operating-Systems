@@ -23,6 +23,8 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int memsize(void);
+int set_affinity_mask(int);
+
 
 // ulib.c
 int stat(const char*, struct stat*);

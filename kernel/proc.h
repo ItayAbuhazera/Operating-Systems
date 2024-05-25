@@ -108,4 +108,7 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  int affinity_mask;       // Affinity mask for the process
+  int effective_affinity_mask; // Effective affinity mask for the process
 };

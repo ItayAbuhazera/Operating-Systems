@@ -55,6 +55,9 @@ procinit(void)
       initlock(&p->lock, "proc");
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
+      // Task 4: 
+      p->affinity_mask = 0;
+      p->effective_affinity_mask = 0;
   }
 }
 
@@ -145,6 +148,11 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+  
+  // Task 4: calibrate the effective affinity mask
+  p->affinity_mask = 0;
+  p->effective_affinity_mask = 0;
+
 
   return p;
 }
@@ -169,6 +177,10 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+
+  // Task 4: calibrate the effective affinity mask
+  p->affinity_mask = 0;
+  p->effective_affinity_mask = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -295,6 +307,8 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+  np->affinity_mask = p->affinity_mask;
+  np->effective_affinity_mask = p->effective_affinity_mask;
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -455,6 +469,7 @@ wait(uint64 addr, uint64 msg_addr)
 void
 scheduler(void)
 {
+  int cpuID;
   struct proc *p;
   struct cpu *c = mycpu();
   
@@ -465,18 +480,34 @@ scheduler(void)
 
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+      if(p->state == RUNNABLE){
+        // Task 4: check if the process is allowed to run on this CPU
+        cpuID = cpuid();
+        if(p->effective_affinity_mask == 0 || (p->effective_affinity_mask & (1 << cpuID)) != 0) {
+          // Print for debugging purposes
+          printf("Process %d is running on CPU %d\n", p->pid, cpuID);
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
 
+          // Task 4: calibrate the effective affinity mask
+          if(p->affinity_mask != 0) {
+            p->effective_affinity_mask &= ~(1 << cpuID); // remove the current CPU from the effective affinity mask
+            if(p->effective_affinity_mask == 0) {
+              p->effective_affinity_mask = p->affinity_mask; // reset the effective affinity mask
+            }
+          }
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
       }
+    }
       release(&p->lock);
     }
   }
