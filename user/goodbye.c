@@ -5,6 +5,6 @@
 int main() {
     
     char *goodbye = "Goodbye World xv6\n";
-    write(1, goodbye, strlen(goodbye));
-    exit(0);
+    // write(1, goodbye, strlen(goodbye));
+    exit(0, goodbye);
 }

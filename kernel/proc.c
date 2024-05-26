@@ -358,7 +358,7 @@ reparent(struct proc *p)
 // An exited process remains in the zombie state
 // until its parent calls wait().
 void
-exit(int status, char *msg) 
+exit(int status, char* msg) 
 {
   struct proc *p = myproc();
 
@@ -389,11 +389,14 @@ exit(int status, char *msg)
   
   acquire(&p->lock);
 
-  // Copy the exit message
-  if (msg == 0) {
-    strncpy(p->exit_msg, "No exit message", sizeof(p->exit_msg));
-  } else {
-    strncpy(p->exit_msg, msg, sizeof(p->exit_msg));
+// Copy the exit message
+  uint64 msg_addr;
+  argaddr(1, &msg_addr);  // Get the address of the message from user space
+  if (msg_addr == 0) {
+    msg = "No exit message";  // Default message if the address is 0
+  }
+  for(int i = 0; i < 32; i++) {
+    p->exit_msg[i] = msg[i];  // Copy the message to the process's exit message
   }
 
   p->xstate = status;
@@ -485,7 +488,7 @@ scheduler(void)
         cpuID = cpuid();
         if(p->effective_affinity_mask == 0 || (p->effective_affinity_mask & (1 << cpuID)) != 0) {
           // Print for debugging purposes
-          printf("Process %d is running on CPU %d\n", p->pid, cpuID);
+          //printf("Process %d is running on CPU %d\n", p->pid, cpuID);
           // Switch to chosen process.  It is the process's job
           // to release its lock and then reacquire it
           // before jumping back to us.
