@@ -3,6 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "spinlock.h"
+#include "sleeplock.h"
 #include "proc.h"
 #include "defs.h"
 
@@ -25,6 +26,9 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+
+int fs_initialized = 0;
+struct sleeplock fsinit_lock;
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -51,13 +55,11 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initsleeplock(&fsinit_lock, "fsinit_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
-      // Task 4: 
-      p->affinity_mask = 0;
-      p->effective_affinity_mask = 0;
   }
 }
 
@@ -109,7 +111,7 @@ allocpid()
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
 // If there are no free procs, or a memory allocation fails, return 0.
-static struct proc*
+struct proc*
 allocproc(void)
 {
   struct proc *p;
@@ -148,11 +150,6 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
-  
-  // Task 4: calibrate the effective affinity mask
-  p->affinity_mask = 0;
-  p->effective_affinity_mask = 0;
-
 
   return p;
 }
@@ -177,10 +174,6 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
-
-  // Task 4: calibrate the effective affinity mask
-  p->affinity_mask = 0;
-  p->effective_affinity_mask = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -307,8 +300,6 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
-  np->affinity_mask = p->affinity_mask;
-  np->effective_affinity_mask = p->effective_affinity_mask;
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -358,7 +349,7 @@ reparent(struct proc *p)
 // An exited process remains in the zombie state
 // until its parent calls wait().
 void
-exit(int status, char* msg) 
+exit(int status)
 {
   struct proc *p = myproc();
 
@@ -389,16 +380,6 @@ exit(int status, char* msg)
   
   acquire(&p->lock);
 
-// Copy the exit message
-  uint64 msg_addr;
-  argaddr(1, &msg_addr);  // Get the address of the message from user space
-  if (msg_addr == 0) {
-    msg = "No exit message";  // Default message if the address is 0
-  }
-  for(int i = 0; i < 32; i++) {
-    p->exit_msg[i] = msg[i];  // Copy the message to the process's exit message
-  }
-
   p->xstate = status;
   p->state = ZOMBIE;
 
@@ -412,7 +393,7 @@ exit(int status, char* msg)
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-wait(uint64 addr, uint64 msg_addr)
+wait(uint64 addr)
 {
   struct proc *pp;
   int havekids, pid;
@@ -432,12 +413,8 @@ wait(uint64 addr, uint64 msg_addr)
         if(pp->state == ZOMBIE){
           // Found one.
           pid = pp->pid;
-          if(addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate, sizeof(pp->xstate)) < 0) {
-            release(&pp->lock);
-            release(&wait_lock);
-            return -1;
-          }
-          if(msg_addr != 0 && copyout(p->pagetable, msg_addr, (char *)pp->exit_msg, sizeof(pp->exit_msg)) < 0) {
+          if(addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate,
+                                  sizeof(pp->xstate)) < 0) {
             release(&pp->lock);
             release(&wait_lock);
             return -1;
@@ -472,7 +449,6 @@ wait(uint64 addr, uint64 msg_addr)
 void
 scheduler(void)
 {
-  int cpuID;
   struct proc *p;
   struct cpu *c = mycpu();
   
@@ -483,34 +459,18 @@ scheduler(void)
 
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE){
-        // Task 4: check if the process is allowed to run on this CPU
-        cpuID = cpuid();
-        if(p->effective_affinity_mask == 0 || (p->effective_affinity_mask & (1 << cpuID)) != 0) {
-          // Print for debugging purposes
-          //printf("Process %d is running on CPU %d\n", p->pid, cpuID);
-          // Switch to chosen process.  It is the process's job
-          // to release its lock and then reacquire it
-          // before jumping back to us.
-          p->state = RUNNING;
-          c->proc = p;
-          swtch(&c->context, &p->context);
-          // Process is done running for now.
-          // It should have changed its p->state before coming back.
-          c->proc = 0;
+      if(p->state == RUNNABLE) {
+        // Switch to chosen process.  It is the process's job
+        // to release its lock and then reacquire it
+        // before jumping back to us.
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
 
-          // Task 4: calibrate the effective affinity mask
-          if(p->affinity_mask != 0) {
-            p->effective_affinity_mask &= ~(1 << cpuID); // remove the current CPU from the effective affinity mask
-            if(p->effective_affinity_mask == 0) {
-              p->effective_affinity_mask = p->affinity_mask; // reset the effective affinity mask
-            }
-          }
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
       }
-    }
       release(&p->lock);
     }
   }
@@ -559,18 +519,20 @@ yield(void)
 void
 forkret(void)
 {
-  static int first = 1;
-
   // Still holding p->lock from scheduler.
   release(&myproc()->lock);
 
-  if (first) {
+  acquiresleep(&fsinit_lock);
+
+  if (!fs_initialized) {
     // File system initialization must be run in the context of a
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
-    first = 0;
+    fs_initialized = 1;
     fsinit(ROOTDEV);
   }
+
+  releasesleep(&fsinit_lock);
 
   usertrapret();
 }
@@ -725,4 +687,16 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Assignment 3 
+//find proc function
+struct proc* find_proc(int pid) {
+    struct proc *p;
+    for(p = proc; p < &proc[NPROC]; p++) {
+        if(p->pid == pid && p->state != UNUSED) {
+            return p;
+        }
+    }
+    return 0;
 }

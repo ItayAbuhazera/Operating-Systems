@@ -5,6 +5,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -151,9 +152,9 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   a = PGROUNDDOWN(va);
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
-    if((pte = walk(pagetable, a, 1)) == 0)
+    if((pte = walk(pagetable, a, 1)) == 0)  // allocate a needed page-table page
       return -1;
-    if(*pte & PTE_V)
+    if(*pte & PTE_V)  // if this PTE is already valid
       panic("mappages: remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
     if(a == last)
@@ -167,29 +168,31 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 // Remove npages of mappings starting from va. va must be
 // page-aligned. The mappings must exist.
 // Optionally free the physical memory.
-void
-uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
-{
-  uint64 a;
-  pte_t *pte;
+void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free) {
+    uint64 a;
+    pte_t *pte;
 
-  if((va % PGSIZE) != 0)
-    panic("uvmunmap: not aligned");
+    if ((va % PGSIZE) != 0)
+        panic("uvmunmap: not aligned");
 
-  for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
-    if((pte = walk(pagetable, a, 0)) == 0)
-      panic("uvmunmap: walk");
-    if((*pte & PTE_V) == 0)
-      panic("uvmunmap: not mapped");
-    if(PTE_FLAGS(*pte) == PTE_V)
-      panic("uvmunmap: not a leaf");
-    if(do_free){
-      uint64 pa = PTE2PA(*pte);
-      kfree((void*)pa);
+    for (a = va; a < va + npages * PGSIZE; a += PGSIZE) {
+        if ((pte = walk(pagetable, a, 0)) == 0)
+            panic("uvmunmap: walk");
+        if ((*pte & PTE_V) == 0)
+            panic("uvmunmap: not mapped");
+        if (PTE_FLAGS(*pte) == PTE_V)
+            panic("uvmunmap: not a leaf");
+
+        // Check for shared page before freeing
+        if (do_free && ((*pte & PTE_S) == 0)) {
+            uint64 pa = PTE2PA(*pte);
+            kfree((void *)pa);
+        }
+
+        *pte = 0;
     }
-    *pte = 0;
-  }
 }
+
 
 // create an empty user page table.
 // returns 0 if out of memory.
@@ -437,3 +440,90 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+//Assignment 3
+uint64 map_shared_pages(struct proc* src_proc, struct proc* dst_proc, uint64 src_va, uint64 size) {
+    if (src_proc == 0 || dst_proc == 0) {
+        printf("Invalid processes in map_shared_pages\n");
+        return -1;
+    }
+
+    acquire(&src_proc->lock); // Acquire lock on source process
+    acquire(&dst_proc->lock); // Acquire lock on destination process
+
+    uint64 start = PGROUNDDOWN(src_va);
+    uint64 end = PGROUNDUP(src_va + size);
+    uint64 num_pages = (end - start) / PGSIZE;
+
+    // Choose a suitable starting address in the destination process
+    uint64 dst_va = PGROUNDUP(dst_proc->sz);
+
+    for (uint64 i = 0; i < num_pages; i++) {
+        uint64 va = start + i * PGSIZE;
+        pte_t *src_pte = walk(src_proc->pagetable, va, 0);
+
+        // Check if the page is valid and user accessible
+        if (src_pte == 0 || (*src_pte & PTE_V) == 0 || (*src_pte & PTE_U) == 0) {
+            release(&dst_proc->lock);
+            release(&src_proc->lock);
+            return -1; // Invalid source mapping
+        }
+        uint64 pa = PTE2PA(*src_pte);
+        int flags = PTE_FLAGS(*src_pte);
+        flags |= PTE_S;
+
+        if (mappages(dst_proc->pagetable, dst_va + i * PGSIZE, PGSIZE, pa, flags) != 0) {
+            printf("map_shared_pages: Mapping failed at page %p\n", (void*)i);
+            release(&dst_proc->lock);
+            release(&src_proc->lock);
+            return -1; // Mapping failed
+        }
+    }
+
+    dst_proc->sz = dst_va + num_pages * PGSIZE > dst_proc->sz ? dst_va + num_pages * PGSIZE : dst_proc->sz;
+
+    release(&dst_proc->lock); // Release lock on destination process
+
+    release(&src_proc->lock); // Release lock on source process
+
+    return dst_va + (src_va - start);
+}
+
+
+
+
+uint64 unmap_shared_pages(struct proc* p, uint64 addr, uint64 size) {
+    acquire(&p->lock); // Acquire lock on process
+
+    uint64 start = PGROUNDDOWN(addr);
+    uint64 end = PGROUNDUP(addr + size);
+    uint64 num_pages = (end - start) / PGSIZE;
+
+    for (uint64 i = 0; i < num_pages; i++) {
+        uint64 va = start + i * PGSIZE;
+        pte_t *pte = walk(p->pagetable, va, 0);
+        if (pte == 0 || (*pte & PTE_V) == 0) {
+            printf("unmap_shared_pages: Invalid mapping at page %p (pte: %p)\n", i, pte);
+            release(&p->lock); // Release lock on process
+            return -1; // Invalid mapping
+        }
+
+        // Only free the physical memory if it's not a shared page
+        if ((*pte & PTE_S) == 0) {
+            uint64 pa = PTE2PA(*pte);
+            kfree((void*)pa);
+        } else {
+            printf("Not freeing shared physical memory at pa: %p for va: %p\n", (void*)PTE2PA(*pte), (void*)va);
+        }
+        *pte = 0;
+    }
+
+    // Update the process size
+    if (p->sz == end) {
+        p->sz = start;
+    }
+
+    release(&p->lock); // Release lock on process
+    return 0;
+}
+

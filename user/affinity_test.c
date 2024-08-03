@@ -4,11 +4,11 @@
 
 int main(int argc, char *argv[])
 {
-    set_affinity_mask(0x1); // Set to CPU 0
+    set_affinity_mask(0xA); // Set to CPU 0
 
     for(;;) {
-    printf("Process %d running\n", getpid());
-    sleep(100);
+    printf("Process %d running on CPU %d\n", getpid(), get_cpu_id());
+    sleep(1);
     }
 
     exit(0,0);

@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct shmem_request;
 
 // bio.c
 void            binit(void);
@@ -82,8 +83,9 @@ void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
 
 // proc.c
+struct proc*    allocproc(void);
 int             cpuid(void);
-void            exit(int, char *msg);
+void            exit(int);
 int             fork(void);
 int             growproc(int);
 void            proc_mapstacks(pagetable_t);
@@ -100,12 +102,22 @@ void            scheduler(void) __attribute__((noreturn));
 void            sched(void);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
-int             wait(uint64 addr, uint64 msg_addr);
+int             wait(uint64);
 void            wakeup(void*);
 void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+// Assignment 3
+struct proc*   find_proc(int pid);
+
+// shmem_queue.c
+void            shmem_queue_init(void);
+void            shmem_queue_insert(int src_pid, int dst_pid, uint64 src_va, uint64 size);
+struct shmem_request shmem_queue_remove();
+
+// syscrypt.c
+void            crypto_srv_init(void);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -173,6 +185,9 @@ uint64          walkaddr(pagetable_t, uint64);
 int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
+//Assignment 3
+uint64          map_shared_pages(struct proc* src_proc, struct proc* dst_proc, uint64 src_va, uint64 size);
+uint64          unmap_shared_pages(struct proc* p, uint64 addr, uint64 size);
 
 // plic.c
 void            plicinit(void);

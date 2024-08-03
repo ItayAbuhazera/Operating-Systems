@@ -1,16 +1,17 @@
 struct stat;
+struct crypto_op;
 
 // system calls
 int fork(void);
-int exit(int,...) __attribute__((noreturn));
-int wait(int*,...);
+int exit(int) __attribute__((noreturn));
+int wait(int*);
 int pipe(int*);
 int write(int, const void*, int);
 int read(int, void*, int);
 int close(int);
 int kill(int);
 int exec(const char*, char**);
-int open(const char*, int);
+int open(const char*, int, ...);
 int mknod(const char*, short, short);
 int unlink(const char*);
 int fstat(int fd, struct stat*);
@@ -22,8 +23,12 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int memsize(void);
-int set_affinity_mask(int);
+int crypto_op(struct crypto_op*, int);
+int take_shared_memory_request(void**, uint64*);
+int remove_shared_memory_request(void*, uint64);
+// Assignment 3
+uint64 map_shared_pages(int src_pid, int dst_pid, uint64 src_va, uint64 size);
+uint64 unmap_shared_pages(int pid, uint64 addr, uint64 size);
 
 
 // ulib.c

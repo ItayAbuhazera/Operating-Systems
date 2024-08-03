@@ -113,16 +113,12 @@ exec(char *path, char **argv)
   // argc is returned via the system call return
   // value, which goes in a0.
   p->trapframe->a1 = sp;
-  //task 4 ass1
-  p->affinity_mask = 0;
-  p->effective_affinity_mask = 0;
+
   // Save program name for debugging.
   for(last=s=path; *s; s++)
     if(*s == '/')
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
-
-
     
   // Commit to the user image.
   oldpagetable = p->pagetable;

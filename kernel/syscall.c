@@ -101,8 +101,13 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
-extern uint64 sys_memsize(void);
-extern uint64 sys_set_affinity_mask(void); //task 5
+extern uint64 sys_crypto_op(void);
+extern uint64 sys_take_shared_memory_request(void);
+extern uint64 sys_remove_shared_memory_request(void);
+// Assingmnet 3
+extern uint64 sys_map_shared_pages(void);
+extern uint64 sys_unmap_shared_pages(void);
+
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -128,8 +133,11 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-[SYS_memsize] sys_memsize,
-[SYS_set_affinity_mask] sys_set_affinity_mask //task 5
+[SYS_crypto_op] sys_crypto_op,
+[SYS_take_shared_memory_request] sys_take_shared_memory_request,
+[SYS_remove_shared_memory_request] sys_remove_shared_memory_request,
+[SYS_map_shared_pages]    sys_map_shared_pages,
+[SYS_unmap_shared_pages]  sys_unmap_shared_pages,
 
 };
 
@@ -150,6 +158,3 @@ syscall(void)
     p->trapframe->a0 = -1;
   }
 }
-
-
-

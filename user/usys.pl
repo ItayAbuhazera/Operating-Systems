@@ -36,5 +36,9 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
-entry("memsize");
-entry("set_affinity_mask");
+entry("crypto_op");
+entry("take_shared_memory_request");
+entry("remove_shared_memory_request");
+entry("map_shared_pages");
+entry("unmap_shared_pages");
+

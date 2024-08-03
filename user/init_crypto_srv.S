@@ -1,12 +1,12 @@
-# Initial process that execs /init.
+# Execs /crypto_srv.
 # This code runs in user space.
 
 #include "syscall.h"
 
-# exec(init, argv)
+# exec(crypto_srv, argv)
 .globl start
 start:
-        la a0, init
+        la a0, crypto_srv
         la a1, argv
         li a7, SYS_exec
         ecall
@@ -17,12 +17,12 @@ exit:
         ecall
         jal exit
 
-# char init[] = "/init\0";
-init:
-  .string "/init\0"
+# char crypto_srv[] = "/crypto_srv\0";
+crypto_srv:
+  .string "/crypto_srv\0"
 
-# char *argv[] = { init, 0 };
+# char *argv[] = { crypto_srv, 0 };
 .p2align 2
 argv:
-  .long init
+  .long crypto_srv
   .long 0

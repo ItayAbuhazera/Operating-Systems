@@ -10,6 +10,8 @@ bootblock
 entryother
 initcode
 initcode.out
+init_crypto_srv
+init_crypto_srv.out
 kernelmemfs
 mkfs
 kernel/kernel

@@ -1,3 +1,11 @@
+#ifndef PROC_H
+#define PROC_H
+
+#include "types.h"
+#include "riscv.h"
+#include "param.h"
+#include "memlayout.h"
+#include "spinlock.h"
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -80,9 +88,6 @@ struct trapframe {
 };
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
-// void exit(int status, char *msg);
-// int wait(uint64 addr, uint64 msg_addr);
-
 
 // Per-process state
 struct proc {
@@ -94,7 +99,6 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
-  char exit_msg[32];           // Exit message
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
@@ -108,7 +112,12 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-
-  int affinity_mask;       // Affinity mask for the process
-  int effective_affinity_mask; // Effective affinity mask for the process
 };
+
+
+//Assignment 3
+struct proc* find_proc(int pid);
+uint64 map_shared_pages(struct proc* src_proc, struct proc* dst_proc, uint64 src_va, uint64 size);
+uint64 unmap_shared_pages(struct proc* p, uint64 addr, uint64 size);
+
+#endif // PROC_H
